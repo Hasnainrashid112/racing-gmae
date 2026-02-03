@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GT3 RS Racing Game</title>
+<style>
+body {
+    margin: 0;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+    font-family: Arial;
+}
+canvas {
+    border: 4px solid white;
+    background: #333;
+}
+#hud {
+    position: absolute;
+    top: 15px;
+    text-align: center;
+    font-size: 18px;
+}
+</style>
+</head>
+<body>
+
+<div id="hud">
+    Score: <span id="score">0</span> |
+    Nitro: <span id="nitro">100</span> |
+    Car: <span id="carName">911 GT3 RS</span>
+</div>
+
+<canvas id="game" width="400" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let score = 0;
+let gameOver = false;
+
+// 🔊 Sound
+const engineSound = new Audio("https://www.fesliyanstudios.com/play-mp3/387");
+engineSound.loop = true;
+engineSound.volume = 0.4;
+
+// 🚗 Garage
+const cars = [
+    { name: "911 GT3 RS", img: "https://i.imgur.com/9QO5XyF.png", speed: 6 },
+    { name: "Lamborghini", img: "https://i.imgur.com/1J8ZQZy.png", speed: 7 },
+    { name: "Ferrari", img: "https://i.imgur.com/8J4Xy8B.png", speed: 6.5 }
+];
+let currentCar = 0;
+
+const playerImg = new Image();
+playerImg.src = cars[currentCar].img;
+
+// Enemy image
+const enemyImg = new Image();
+enemyImg.src = "https://i.imgur.com/6X12QxQ.png";
+
+// Player
+const player = {
+    x: 170,
+    y: 480,
+    width: 60,
+    height: 100,
+    speed: cars[currentCar].speed,
+    nitro: 100
+};
+
+let enemies = [];
+let keys = {};
+
+// 🎮 Controls
+document.addEventListener("keydown", e => {
+    keys[e.key] = true;
+    engineSound.play();
+
+    if (e.key === "g") switchCar();
+});
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+// 🚘 Switch car
+function switchCar() {
+    currentCar = (currentCar + 1) % cars.length;
+    playerImg.src = cars[currentCar].img;
+    player.speed = cars[currentCar].speed;
+    document.getElementById("carName").innerText = cars[currentCar].name;
+}
+
+// 🛣️ Road
+function drawRoad() {
+    ctx.fillStyle = "#444";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.setLineDash([20, 20]);
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(200, 0);
+    ctx.lineTo(200, 600);
+    ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+// 🚗 Player
+function drawPlayer() {
+    ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+}
+
+// 🚙 Enemies
+function spawnEnemy() {
+    const lanes = [70, 170, 270];
+    enemies.push({
+        x: lanes[Math.floor(Math.random() * lanes.length)],
+        y: -120,
+        width: 50,
+        height: 90,
+        speed: 4 + score / 400
+    });
+}
+
+function drawEnemies() {
+    enemies.forEach(e =>
+        ctx.drawImage(enemyImg, e.x, e.y, e.width, e.height)
+    );
+}
+
+function updateEnemies() {
+    enemies.forEach(e => e.y += e.speed);
+    enemies = enemies.filter(e => e.y < 700);
+}
+
+// 💥 Collision
+function hit(a, b) {
+    return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+    );
+}
+
+// 🔥 Nitro & 🛞 Drift
+function updatePlayer() {
+    let speed = player.speed;
+
+    if (keys["Shift"] && player.nitro > 0) {
+        speed += 4;
+        player.nitro--;
+    } else if (player.nitro < 100) {
+        player.nitro += 0.3;
+    }
+
+    // Drift
+    if (keys["a"]) player.x -= speed * 1.5;
+    if (keys["d"]) player.x += speed * 1.5;
+
+    // Normal steering
+    if (keys["ArrowLeft"]) player.x -= speed;
+    if (keys["ArrowRight"]) player.x += speed;
+
+    player.x = Math.max(40, Math.min(300, player.x));
+}
+
+// 🔄 Game loop
+let timer = 0;
+function loop() {
+    if (gameOver) return;
+
+    drawRoad();
+    updatePlayer();
+    drawPlayer();
+
+    timer++;
+    if (timer > 60) {
+        spawnEnemy();
+        timer = 0;
+    }
+
+    updateEnemies();
+    drawEnemies();
+
+    enemies.forEach(e => {
+        if (hit(player, e)) {
+            gameOver = true;
+            engineSound.pause();
+            alert("💥 CRASH! Score: " + score);
+            location.reload();
+        }
+    });
+
+    score++;
+    document.getElementById("score").innerText = score;
+    document.getElementById("nitro").innerText = Math.floor(player.nitro);
+
+    requestAnimationFrame(loop);
+}
+
+playerImg.onload = loop;
+</script>
+
+</body>
+</html>
